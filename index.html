@@ -423,7 +423,7 @@ function startControl(){
 
 let soundEnabled = true;
 let audioCtx = null;
-let lastNotifiedAt = null;
+let lastPingAt = undefined;
 
 function unlockAudio(){
   try{
@@ -469,7 +469,7 @@ function joinAsDisplay(code){
   roomCode = code;
   role = 'display';
   unlockAudio();
-  lastNotifiedAt = null;
+  lastPingAt = undefined;
   dbRef = db.ref('sessions/' + roomCode);
   renderDisplay();
   dbRef.on('value', snap => {
@@ -481,11 +481,15 @@ function joinAsDisplay(code){
     currentEndTime = val.endTime || null;
     currentTotalMs = val.totalMs || null;
     renderDisplay();
-    if(lastNotifiedAt === null){
-      lastNotifiedAt = val.updatedAt || Date.now();
-    } else if(val.updatedAt && val.updatedAt !== lastNotifiedAt){
-      lastNotifiedAt = val.updatedAt;
+
+    const incomingPing = val.pingAt || null;
+    if(lastPingAt === undefined){
+      lastPingAt = incomingPing;
+    } else if(incomingPing && incomingPing !== lastPingAt){
+      lastPingAt = incomingPing;
       notifyNewSignal();
+    } else {
+      lastPingAt = incomingPing;
     }
   });
 }
@@ -629,7 +633,9 @@ function renderControl(){
     </div>
   `;
   document.getElementById('back-btn').onclick = goPicker;
-  document.getElementById('ping-btn').onclick = () => pushState({});
+  document.getElementById('ping-btn').onclick = () => {
+    if(dbRef){ dbRef.child('pingAt').set(Date.now()).catch(e => console.error('Error al enviar aviso:', e)); }
+  };
   document.getElementById('reset-btn').onclick = () => pushState({ status:'ready', message:'', endTime:null, totalMs:null });
 
   root.querySelectorAll('.time-chip').forEach(b => {
