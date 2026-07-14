@@ -421,9 +421,55 @@ function startControl(){
   renderControl();
 }
 
+let soundEnabled = true;
+let audioCtx = null;
+let lastNotifiedAt = null;
+
+function unlockAudio(){
+  try{
+    if(!audioCtx){
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new Ctx();
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+  }catch(e){ console.error('No se pudo iniciar el audio:', e); }
+}
+
+function playChime(){
+  if(!soundEnabled || !audioCtx) return;
+  try{
+    const ctx = audioCtx;
+    const now = ctx.currentTime;
+    [0, 0.18].forEach((offset, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = i === 0 ? 880 : 1108;
+      gain.gain.setValueAtTime(0, now + offset);
+      gain.gain.linearRampToValueAtTime(0.28, now + offset + 0.02);
+      gain.gain.linearRampToValueAtTime(0, now + offset + 0.16);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.18);
+    });
+  }catch(e){ console.error('No se pudo reproducir el sonido:', e); }
+}
+
+function vibrateDevice(){
+  if(!soundEnabled) return;
+  try{ if(navigator.vibrate) navigator.vibrate([180,80,180]); }catch(e){}
+}
+
+function notifyNewSignal(){
+  playChime();
+  vibrateDevice();
+}
+
 function joinAsDisplay(code){
   roomCode = code;
   role = 'display';
+  unlockAudio();
+  lastNotifiedAt = null;
   dbRef = db.ref('sessions/' + roomCode);
   renderDisplay();
   dbRef.on('value', snap => {
@@ -435,6 +481,12 @@ function joinAsDisplay(code){
     currentEndTime = val.endTime || null;
     currentTotalMs = val.totalMs || null;
     renderDisplay();
+    if(lastNotifiedAt === null){
+      lastNotifiedAt = val.updatedAt || Date.now();
+    } else if(val.updatedAt && val.updatedAt !== lastNotifiedAt){
+      lastNotifiedAt = val.updatedAt;
+      notifyNewSignal();
+    }
   });
 }
 
@@ -636,6 +688,7 @@ function renderDisplay(){
 
   root.innerHTML = `
     <button class="exit" id="exit-btn">Salir de la sala</button>
+    <button class="exit" id="sound-btn" style="right:140px;">${soundEnabled ? 'Sonido: activado' : 'Sonido: silenciado'}</button>
     <div class="display-wrap" style="background:radial-gradient(circle at 50% 38%, ${color}17, var(--bg) 72%)">
       <div class="beacon ${pulsing?'pulsing':''}" style="background:${color}1f; box-shadow:0 0 70px 14px ${color}30, inset 0 0 0 3px ${color}66;">
         ${icon}
@@ -645,6 +698,11 @@ function renderDisplay(){
     </div>
   `;
   document.getElementById('exit-btn').onclick = goPicker;
+  document.getElementById('sound-btn').onclick = () => {
+    soundEnabled = !soundEnabled;
+    if(soundEnabled) unlockAudio();
+    renderDisplay();
+  };
 }
 
 renderPicker();
