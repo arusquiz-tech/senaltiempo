@@ -570,6 +570,12 @@ function renderControl(){
         </div>
 
         <div class="section">
+          <p class="eyebrow">Llamar la atención</p>
+          <button class="primary" id="ping-btn" style="width:100%;">🔔 Enviar aviso sonoro</button>
+          <p class="status-line" style="margin-top:8px;">Hace sonar y vibrar la tablet, sin cambiar lo que se ve en pantalla.</p>
+        </div>
+
+        <div class="section">
           <p class="eyebrow">Señales de tiempo</p>
           <div class="time-grid">
             ${order.map(key=>{
@@ -623,6 +629,7 @@ function renderControl(){
     </div>
   `;
   document.getElementById('back-btn').onclick = goPicker;
+  document.getElementById('ping-btn').onclick = () => pushState({});
   document.getElementById('reset-btn').onclick = () => pushState({ status:'ready', message:'', endTime:null, totalMs:null });
 
   root.querySelectorAll('.time-chip').forEach(b => {
